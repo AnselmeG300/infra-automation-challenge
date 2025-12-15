@@ -57,7 +57,8 @@ Your automation must:
 - Disable root SSH login.
 - Install and configure:
   - Docker (latest stable)
-  - fail2ban
+  - fail2ban for security monitoring
+  - Log rotation for fail2ban and Docker logs
 - Deploy a containerized sample app (provided or self-built).
 - Configure log rotation and ensure logs remain clean.
 - Be **idempotent** — multiple runs must not cause duplication or errors.
@@ -182,3 +183,17 @@ Before you open a Pull Request, confirm that you have completed all items below.
 
 **Reminder:** This is a public community assignment.  
 Approved solutions will be tagged and remain visible as part of your **public engineering portfolio**.
+
+---
+
+## 👥 Contributors
+
+This project has been developed and maintained by:
+
+| Name | Role | GitHub |
+|------|------|--------|
+| **Noumabeu Moutacdie Jordan** | Lead Contributor | [@prncnano2000](https://github.com/prncnano2000) |
+
+### Contributions
+
+- **Noumabeu Moutacdie Jordan**: Complete Ansible automation setup, Docker containerization, documentation, and infrastructure-as-code implementation.

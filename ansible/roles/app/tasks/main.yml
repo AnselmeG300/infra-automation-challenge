@@ -1,0 +1,22 @@
+- name: Copier l'application Docker
+  copy:
+    src: ../../docker/app/
+    dest: /opt/app
+
+- name: Construire l'image Docker
+  docker_image:
+    name: demo_app
+    tag: latest
+    source: build
+    build:
+      path: /opt/app
+    state: present
+
+- name: Lancer le conteneur applicatif
+  docker_container:
+    name: demo_app
+    image: demo_app:latest
+    state: started
+    restart_policy: always
+    ports:
+      - "80:80"

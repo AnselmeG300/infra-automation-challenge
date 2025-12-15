@@ -1,0 +1,24 @@
+- name: Mise à jour du cache APT
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+
+- name: Installation des paquets requis
+  apt:
+    name: "{{ packages }}"
+    state: present
+
+
+- name: Création de l'utilisateur deploy
+  user:
+    name: "{{ ssh_user }}"
+    groups: sudo
+    append: yes
+
+
+- name: Autoriser sudo sans mot de passe
+  copy:
+    dest: /etc/sudoers.d/{{ ssh_user }}
+    content: "{{ ssh_user }} ALL=(ALL) NOPASSWD:ALL"
+    mode: '0440'

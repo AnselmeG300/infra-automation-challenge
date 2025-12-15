@@ -1,0 +1,1 @@
+Ce projet suit des règles de respect, de collaboration et de responsabilité professionnelle.

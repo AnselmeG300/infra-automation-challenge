@@ -1,0 +1,10 @@
+# Variables globales
+ssh_user: ubuntu
+
+packages:
+- apt-transport-https
+- ca-certificates
+- curl
+- gnupg
+- lsb-release
+- fail2ban

@@ -1,0 +1,19 @@
+- name: Configurer la rotation des logs fail2ban
+  template:
+    src: fail2ban.logrotate.j2
+    dest: /etc/logrotate.d/fail2ban
+    mode: '0644'
+
+- name: Configurer les logs Docker
+  copy:
+    dest: /etc/docker/daemon.json
+    content: |
+      {
+        "log-driver": "json-file",
+        "log-opts": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      }
+    mode: '0644'
+  notify: restart docker
