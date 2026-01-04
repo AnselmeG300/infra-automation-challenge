@@ -1,0 +1,167 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, feature/fastapi-auth ]
+  pull_request:
+    branches: [ main, feature/fastapi-auth ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/${{ github.event.repository.name }}
+
+jobs:
+  # 🧪 Job 1: Tests Unitaires
+  test:
+    runs-on: ubuntu-latest
+    name: Unit Tests
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: fastapi_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          cd app
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/fastapi_db
+        run: |
+          cd app
+          pytest tests/ -v --tb=short
+
+  # 🐳 Job 2: Build Docker Image
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    name: Build Docker Image
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Convert image name to lowercase
+        id: image
+        run: |
+          IMAGE_NAME=${{ env.IMAGE_NAME }}
+          echo "name=${IMAGE_NAME,,}" >> $GITHUB_OUTPUT
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./app
+          file: ./docker/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}:latest
+            ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # 🔗 Job 3: Integration Tests
+  integration:
+    runs-on: ubuntu-latest
+    name: Integration Tests
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create .env file
+        run: |
+          cd docker
+          cat > .env << EOF
+          DB_USER=postgres
+          DB_PASSWORD=postgres
+          DB_NAME=fastapi_db
+          EOF
+
+      - name: Start services with Docker Compose
+        run: |
+          cd docker
+          docker compose up -d
+          sleep 15
+
+      - name: Check service health
+        run: |
+          cd docker
+          docker compose ps
+
+      - name: Test API health check
+        run: |
+          for i in {1..30}; do
+            if curl -f http://localhost:8000/health; then
+              echo "✅ API is healthy!"
+              exit 0
+            fi
+            echo "Attempt $i: Waiting for API..."
+            sleep 2
+          done
+          echo "❌ API failed to start"
+          cd docker
+          docker compose logs api
+          exit 1
+
+      - name: Test sign up endpoint
+        run: |
+          response=$(curl -X POST http://localhost:8000/signup \
+            -H "Content-Type: application/json" \
+            -d '{"email":"test@example.com","password":"password123"}' \
+            -s)
+          echo "Sign up response: $response"
+          echo "$response" | grep -q "email" && echo "✅ Sign up works" || exit 1
+
+      - name: Test login endpoint
+        run: |
+          response=$(curl -X POST http://localhost:8000/login \
+            -H "Content-Type: application/json" \
+            -d '{"email":"test@example.com","password":"password123"}' \
+            -s)
+          token=$(echo "$response" | grep -o '"token":"[^"]*' | cut -d'"' -f4)
+          echo "Token: $token"
+          [ -n "$token" ] && echo "✅ Login works" || exit 1
+
+      - name: Stop services
+        if: always()
+        run: |
+          cd docker
+          docker compose down -v
+

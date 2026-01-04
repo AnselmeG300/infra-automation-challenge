@@ -1,52 +1,438 @@
-# 🧩 Build Containers & CI/CD Pipelines with FastAPI
+# 🎯 FastAPI Authentication & PostgreSQL Backend with CI/CD
+
+Une application backend FastAPI moderne avec authentification sécurisée, base de données PostgreSQL, tests unitaires complets et pipeline CI/CD automatisé avec GitHub Actions.
 
 **Scalyz 30 Days Job-Ready Challenge — Chapter 3: Containers & CI/CD Pipelines**
 
 ---
 
-## 📖 About This Assignment
+## 📋 Table des matières
 
-This project is part of the **Scalyz 30 Days Job-Ready Challenge** — a public, community-driven assignment designed to push you beyond tutorials and into **real engineering work**.
+- [Fonctionnalités](#-fonctionnalités)
+- [Architecture](#-architecture)
+- [Prérequis](#-prérequis)
+- [Installation](#-installation)
+- [Utilisation](#-utilisation)
+- [Tests](#-tests)
+- [Docker & Docker Compose](#-docker--docker-compose)
+- [Pipeline CI/CD](#-pipeline-cicd)
+- [API Endpoints](#-api-endpoints)
+- [Sécurité](#-sécurité)
+- [Structure du projet](#-structure-du-projet)
 
-All submissions are **public**.
+## ✨ Fonctionnalités
 
-- **Approved solutions** are **tagged** in the repository.
-- **Current work** is visible in **open Pull Requests** with active discussions.
+✅ **Authentification sécurisée** : Enregistrement et connexion avec hachage bcrypt  
+✅ **Base de données PostgreSQL** : Stockage persistant des utilisateurs  
+✅ **Routes protégées** : Accès via token Bearer  
+✅ **Tests unitaires** : 7+ tests couvrant les cas d'usage principaux  
+✅ **Conteneurisation Docker** : Build et exécution isolée  
+✅ **Docker Compose** : Orchestration locale FastAPI + PostgreSQL  
+✅ **Pipeline CI/CD** : GitHub Actions automatisée (tests → build → push)  
+✅ **Health checks** : Monitoring de la santé de l'application  
+✅ **Variables d'environnement** : Configuration sans secrets en dur  
 
-**Your role:** behave like a professional engineer — read existing discussions, learn from others, contribute ideas, and deliver your own solution.
+## 🏗️ Architecture
+
+```
+┌─────────────────────────────────────────────────────┐
+│           GitHub Actions (CI/CD Pipeline)           │
+│  - Tests unitaires                                   │
+│  - Build Docker image                                │
+│  - Push vers registre (si main)                      │
+└─────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────┐
+│              Docker Compose (Local)                  │
+│                                                     │
+│  ┌──────────────────┐      ┌──────────────────┐   │
+│  │   FastAPI App    │ ←──→ │   PostgreSQL 15  │   │
+│  │  (Python 3.10)   │      │   (Port: 5432)   │   │
+│  │  (Port: 8000)    │      │                  │   │
+│  └──────────────────┘      └──────────────────┘   │
+└─────────────────────────────────────────────────────┘
+```
+
+## 📦 Prérequis
+
+### Développement local
+- **Python** 3.10+
+- **pip** (gestionnaire de paquets Python)
+- **PostgreSQL** 15+ (ou utiliser Docker Compose)
+
+### Conteneurisation
+- **Docker** 20.10+
+- **Docker Compose** 2.0+
+
+### CI/CD
+- **GitHub Actions** (intégré dans ce repository)
+
+## 🚀 Installation
+
+### 1. Cloner le repository
+
+```bash
+git clone https://github.com/Moutacdie2000/containers-cicd-challenge.git
+cd containers-cicd-challenge
+```
+
+### 2. Installation locale (sans Docker)
+
+#### Créer un environnement virtuel
+
+```bash
+python3.10 -m venv venv
+source venv/bin/activate  # sur Linux/macOS
+# ou
+venv\Scripts\activate  # sur Windows
+```
+
+#### Installer les dépendances
+
+```bash
+cd app
+pip install -r requirements.txt
+```
+
+#### Configurer la base de données
+
+```bash
+# Option 1 : PostgreSQL local
+export DATABASE_URL="postgresql://user:password@localhost:5432/fastapi_db"
+
+# Option 2 : Base de données SQLite (tests)
+# Laisser DATABASE_URL vide, la valeur par défaut sera utilisée
+```
+
+#### Démarrer l'application
+
+```bash
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+L'application sera accessible sur `http://localhost:8000`
+
+## 🐳 Docker & Docker Compose
+
+### Démarrer l'application avec Docker Compose
+
+```bash
+cd docker
+
+# Créer un fichier .env (optionnel - les valeurs par défaut sont définies)
+echo "DB_USER=postgres" > .env
+echo "DB_PASSWORD=postgres" >> .env
+echo "DB_NAME=fastapi_db" >> .env
+
+# Démarrer les services
+docker-compose up -d
+
+# Vérifier l'état des services
+docker-compose ps
+
+# Voir les logs
+docker-compose logs -f api
+docker-compose logs -f postgres
+```
+
+#### Arrêter les services
+
+```bash
+cd docker
+docker-compose down
+
+# Supprimer aussi les volumes (données)
+docker-compose down -v
+```
+
+### Variables d'environnement pour Docker
+
+Créez un fichier `.env` dans le répertoire `docker/` :
+
+```env
+DB_USER=postgres
+DB_PASSWORD=your_secure_password
+DB_NAME=fastapi_db
+```
+
+**⚠️ IMPORTANT** : Ne jamais commiter le fichier `.env` ! Ajouter à `.gitignore` :
+
+```
+docker/.env
+app/.env
+.env
+```
+
+## 💻 Utilisation
+
+### Health Check
+
+```bash
+curl http://localhost:8000/health
+# Réponse: {"status":"ok"}
+```
+
+### Inscription (Sign Up)
+
+```bash
+curl -X POST http://localhost:8000/signup \
+  -H "Content-Type: application/json" \
+  -d '{"email": "user@example.com", "password": "secure_password123"}'
+
+# Réponse:
+# {
+#   "id": 1,
+#   "email": "user@example.com",
+#   "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+# }
+```
+
+### Connexion (Login)
+
+```bash
+curl -X POST http://localhost:8000/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "user@example.com", "password": "secure_password123"}'
+
+# Réponse:
+# {
+#   "id": 1,
+#   "email": "user@example.com",
+#   "token": "new_token_here"
+# }
+```
+
+### Accès à une route protégée
+
+```bash
+curl -H "Authorization: Bearer <votre_token>" \
+  http://localhost:8000/protected
+
+# Réponse:
+# {"message": "Hello user@example.com!"}
+```
+
+## 🧪 Tests
+
+### Exécuter les tests unitaires
+
+```bash
+cd app
+
+# Installer les dépendances de test
+pip install -r requirements.txt
+
+# Exécuter les tests
+pytest tests/ -v
+
+# Exécuter avec couverture
+pytest tests/ -v --cov=main
+```
+
+### Couverture des tests
+
+Les tests couvrent :
+
+- ✅ **Test 1** : Inscription réussie
+- ✅ **Test 2** : Rejet d'email dupliqué
+- ✅ **Test 3** : Connexion réussie
+- ✅ **Test 4** : Rejet de mot de passe incorrect
+- ✅ **Test 5** : Accès à route protégée avec token valide
+- ✅ **Test 6** : Rejet de route protégée sans token
+- ✅ **Test 7** : Health check
+
+## 🔄 Pipeline CI/CD
+
+### Flux de travail GitHub Actions
+
+Le pipeline s'exécute sur :
+- **Push** vers `main` ou `feature/fastapi-auth`
+- **Pull requests** vers `main` ou `feature/fastapi-auth`
+
+### Étapes du pipeline
+
+1. **Job "test"** : Lance les tests unitaires
+   - Python 3.10
+   - PostgreSQL service container
+   - Installation des dépendances
+   - Exécution de pytest
+
+2. **Job "build"** : Build et push l'image Docker
+   - Crée l'image Docker
+   - Pousse vers `ghcr.io` (si branche `main`)
+   - Utilise le cache Docker pour accélérer
+
+3. **Job "docker-compose-test"** : Teste avec docker-compose
+   - Démarre tous les services
+   - Vérifie le health check
+   - Nettoie les ressources
+
+### Configuration GitHub Secrets
+
+Aucun secret requis ! Le pipeline utilise :
+- `secrets.GITHUB_TOKEN` (fourni automatiquement par GitHub)
+- Variables d'environnement non sensibles
+
+### Afficher le statut du pipeline
+
+Consultez l'onglet **Actions** de votre repository GitHub pour voir :
+- État des jobs
+- Logs détaillés
+- Historique des exécutions
+
+## 📡 API Endpoints
+
+| Méthode | Endpoint | Description | Auth |
+|---------|----------|-------------|------|
+| `GET` | `/health` | Vérifier la santé de l'app | ❌ |
+| `POST` | `/signup` | Créer un nouveau compte | ❌ |
+| `POST` | `/login` | Se connecter et obtenir un token | ❌ |
+| `GET` | `/protected` | Route protégée (exemple) | ✅ |
+
+## 🔐 Sécurité
+
+### Bonnes pratiques implémentées
+
+✅ **Hachage des mots de passe** : Utilise bcrypt avec salting  
+✅ **Tokens sécurisés** : Tokens URL-safe aléatoires (32+ caractères)  
+✅ **Variables d'environnement** : Aucun secret en dur dans le code  
+✅ **Authentification Bearer** : Tokens dans les headers HTTP  
+✅ **Validation des données** : Pydantic pour validation stricte  
+✅ **Health checks PostgreSQL** : Vérification de la connectivité
+
+### À faire en production
+
+⚠️ Utiliser JWT (JSON Web Tokens) au lieu de tokens simples  
+⚠️ Ajouter HTTPS/TLS  
+⚠️ Implémenter rate limiting  
+⚠️ Ajouter logging et monitoring  
+⚠️ Configurer CORS si nécessaire  
+⚠️ Utiliser Azure Key Vault ou HashiCorp Vault pour les secrets
+
+## 📁 Structure du projet
+
+```
+containers-cicd-challenge/
+├── app/                                    # Code de l'application
+│   ├── main.py                            # Application FastAPI
+│   ├── requirements.txt                   # Dépendances Python
+│   └── tests/
+│       └── test_app.py                    # Tests unitaires
+│
+├── docker/                                 # Configuration Docker
+│   ├── Dockerfile                         # Image Docker
+│   └── docker-compose.yml                 # Orchestration locale
+│
+├── .github/
+│   └── workflows/
+│       └── ci.yml                         # Pipeline GitHub Actions
+│
+├── docs/
+│   └── decision-log.md                    # Décisions techniques
+│
+├── README.md                               # Ce fichier
+├── LICENSE                                 # Licence du projet
+├── CODE_OF_CONDUCT.md                     # Code de conduite
+├── CONTRIBUTING.md                        # Guide de contribution
+├── SECURITY.md                            # Politique de sécurité
+└── SUPPORT.md                             # Support
+```
+
+## 🔧 Développement
+
+### Ajouter une nouvelle dépendance
+
+```bash
+cd app
+pip install package_name
+pip freeze > requirements.txt
+```
+
+### Ajouter de nouveaux tests
+
+```bash
+# Éditer app/tests/test_app.py et ajouter des tests
+# Puis exécuter:
+pytest tests/ -v
+```
+
+### Modifier la base de données
+
+1. Éditer le modèle `User` dans `app/main.py`
+2. Recréer les tables :
+   ```python
+   Base.metadata.drop_all(bind=engine)
+   Base.metadata.create_all(bind=engine)
+   ```
+
+## 🐛 Troubleshooting
+
+### Erreur : `Connection refused` PostgreSQL
+
+**Cause** : PostgreSQL n'est pas en cours d'exécution
+
+**Solution** :
+```bash
+# Avec Docker Compose
+cd docker
+docker-compose up -d postgres
+
+# Ou vérifier la connexion
+psql -h localhost -U postgres -d fastapi_db
+```
+
+### Erreur : Port `8000` déjà utilisé
+
+**Solution** :
+```bash
+# Trouver le processus utilisant le port
+lsof -i :8000
+
+# Ou utiliser un autre port
+uvicorn main:app --port 8001
+```
+
+### Erreur : Dépendances manquantes
+
+**Solution** :
+```bash
+cd app
+pip install -r requirements.txt
+```
+
+### Tests échouent en local mais passent en CI
+
+**Cause** : Variables d'environnement différentes
+
+**Solution** :
+```bash
+export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/fastapi_db"
+pytest tests/ -v
+```
+
+## 📚 Ressources
+
+- [FastAPI Documentation](https://fastapi.tiangolo.com/)
+- [SQLAlchemy ORM](https://docs.sqlalchemy.org/)
+- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
+- [Docker Documentation](https://docs.docker.com/)
+- [GitHub Actions Documentation](https://docs.github.com/en/actions)
+
+## 📝 Licence
+
+Ce projet est sous licence MIT - voir [LICENSE](LICENSE)
+
+## 👥 Contribution
+
+Les contributions sont bienvenues ! Veuillez consulter [CONTRIBUTING.md](CONTRIBUTING.md)
+
+## 🆘 Support
+
+Pour toute question, veuillez consulter [SUPPORT.md](SUPPORT.md)
 
 ---
 
-## 💬 How to Participate
-
-1. **Read ongoing discussions** in existing Pull Requests.
-2. **Create issues** if you need help or spot potential improvements.
-3. Ask for guidance **directly in the Scalyz community** or by commenting on PRs.
-4. Submit your solution via Pull Request for review.
-
-> 💡 This is a **public community assignment**.  
-> The goal is for you to **experience the full engineering workflow**: coding, containerizing, automating pipelines, collaborating, and proving — to yourself and to others — that you can do the job.
-
----
-
-## 📝 Assignment Title
-
-**Mission:** Build and containerize a simple FastAPI backend app with authentication and PostgreSQL, write unit tests, and set up a CI/CD pipeline using GitHub Actions.
-
----
-
-## 🎯 Problem Statement
-
-Your client is launching a backend service that must be **reliable, testable, and deployable**.  
-They want a small **FastAPI application with authentication**, backed by a **PostgreSQL database**, containerized with Docker & Compose, and shipped automatically via a **CI/CD pipeline**.
-
-This is exactly what most of companies expect from engineers in modern projects.
-
----
-
-## ✅ Requirements
-
-Your solution must:
+**Créé avec ❤️ pour les ingénieurs backend et DevOps**
 
 - Implement a FastAPI app (`/signup` and `/login` routes).
 - Write at least **two unit tests** for the app.
@@ -151,32 +537,32 @@ Before you open a Pull Request, confirm that you have completed all items below.
 
 ### 🔹 Functional Requirements
 
-- [ ] FastAPI app with `/signup` and `/login` routes implemented.
-- [ ] At least 2 unit tests written and passing.
-- [ ] Dockerfile builds the app image successfully.
-- [ ] docker-compose runs app + Postgres together.
-- [ ] GitHub Actions workflow runs tests and builds the image.
-- [ ] Secrets stored via environment variables (not hardcoded).
+- [x] FastAPI app with `/signup` and `/login` routes implemented.
+- [x] At least 2 unit tests written and passing.
+- [x] Dockerfile builds the app image successfully.
+- [x] docker-compose runs app + Postgres together.
+- [x] GitHub Actions workflow runs tests and builds the image.
+- [x] Secrets stored via environment variables (not hardcoded).
 
 ### 🔹 Code Quality & Structure
 
-- [ ] Repo structure matches provided scaffolding.
-- [ ] Code is modular and documented.
-- [ ] Tests are clear and reproducible.
-- [ ] No unused files or dependencies.
+- [x] Repo structure matches provided scaffolding.
+- [x] Code is modular and documented.
+- [x] Tests are clear and reproducible.
+- [x] No unused files or dependencies.
 
 ### 🔹 Documentation
 
-- [ ] `README.md` includes setup and execution instructions.
-- [ ] `docs/decision-log.md` explains tool choices and design decisions.
-- [ ] Environment variables and ports are documented.
+- [x] `README.md` includes setup and execution instructions.
+- [x] `docs/decision-log.md` explains tool choices and design decisions.
+- [x] Environment variables and ports are documented.
 
 ### 🔹 Git & Collaboration
 
-- [ ] Commits are small and descriptive.
-- [ ] Branch name is descriptive (e.g., `feature/fastapi-auth`).
-- [ ] I have reviewed at least one existing PR in the repository.
-- [ ] I am ready to respond to reviewer feedback in the PR discussion.
+- [x] Commits are small and descriptive.
+- [x] Branch name is descriptive (e.g., `feature/fastapi-auth`).
+- [x] I have reviewed at least one existing PR in the repository.
+- [x] I am ready to respond to reviewer feedback in the PR discussion.
 
 ---
 
